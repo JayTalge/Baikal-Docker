@@ -1,0 +1,16 @@
+#!/bin/sh
+set -e
+
+mkdir -p /var/www/baikal/Specific/db /var/www/baikal/config
+
+# Volumes may come from older images (e.g. ckulka/baikal uses uid 101 "nginx")
+if [ -z "${BAIKAL_SKIP_CHOWN+x}" ]; then
+  chown -R www-data:www-data /var/www/baikal/config /var/www/baikal/Specific
+fi
+
+# Only start PHP-FPM when running the web server (not for e.g. `docker run … php -v`)
+if [ "$1" = "nginx" ]; then
+  php-fpm --daemonize
+fi
+
+exec "$@"
