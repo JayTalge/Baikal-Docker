@@ -11,6 +11,8 @@ fi
 # Only start PHP-FPM when running the web server (not for e.g. `docker run … php -v`)
 if [ "$1" = "nginx" ]; then
   php-fpm --daemonize
+  # Runs in the background once nginx is up
+  /usr/local/bin/baikal-auto-upgrade &
 fi
 
 exec "$@"

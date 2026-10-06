@@ -1,0 +1,35 @@
+#!/bin/sh
+# Runs Baikal's own upgrade wizard once after a version change, so CalDAV/CardDAV
+# keep working after an automatic image update (e.g. Watchtower). Until the
+# upgrade has run, Baikal redirects every request - also dav.php - to the wizard.
+# A copy of the SQLite DB is kept as Specific/db/db.sqlite.pre-<new version>.
+# Disable with BAIKAL_AUTO_UPGRADE=false.
+set -u
+CONFIG=/var/www/baikal/config/baikal.yaml
+[ "${BAIKAL_AUTO_UPGRADE:-true}" = "true" ] || exit 0
+[ -f "$CONFIG" ] || exit 0
+
+current=$(sed -n 's/^ *configured_version: *//p' "$CONFIG" | tr -d "'\"")
+image=$(sed -n 's/.*define("BAIKAL_VERSION", "\([^"]*\)").*/\1/p' /var/www/baikal/Core/Distrib.php)
+[ -n "$current" ] && [ -n "$image" ] || exit 0
+[ "$current" = "$image" ] && exit 0
+# Only upgrade, never downgrade
+[ "$(printf '%s\n%s\n' "$current" "$image" | sort -V | tail -n1)" = "$image" ] || exit 0
+
+echo "baikal-auto-upgrade: upgrading configuration from $current to $image"
+db=$(sed -n 's/^ *sqlite_file: *//p' "$CONFIG" | tr -d "'\"")
+backend=$(sed -n 's/^ *backend: *//p' "$CONFIG" | tr -d "'\"")
+if [ "$backend" = "sqlite" ] && [ -f "$db" ]; then
+  cp -p "$db" "$db.pre-$image" && echo "baikal-auto-upgrade: backup $db.pre-$image"
+fi
+
+for i in $(seq 1 30); do
+  curl -fsS -o /dev/null http://127.0.0.1/healthz 2>/dev/null && break
+  sleep 1
+done
+jar=$(mktemp)
+curl -fsS -c "$jar" -b "$jar" -o /dev/null http://127.0.0.1/admin/install/
+curl -fsS -c "$jar" -b "$jar" "http://127.0.0.1/admin/install/index.php?upgradeConfirmed=true" | grep -q "successfully upgraded" \
+  && echo "baikal-auto-upgrade: done" \
+  || echo "baikal-auto-upgrade: upgrade did not report success, check /admin/install/" >&2
+rm -f "$jar"

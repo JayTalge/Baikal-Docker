@@ -35,7 +35,7 @@ services:
 - `/.well-known/caldav` and `/.well-known/carddav` redirect relatively to `/dav.php`, so they keep the scheme and host of the reverse proxy.
 - Behind a TLS-terminating reverse proxy, `X-Forwarded-Proto: https` is passed to PHP as `HTTPS=on` / port 443, so Baikal's own redirects use https.
 - On start, `config/` and `Specific/` are chowned to `www-data`. That makes volumes from `ckulka/baikal` (uid 101) work. Set `BAIKAL_SKIP_CHOWN=1` to skip.
-- After a version change, Baikal shows its upgrade wizard at `/admin/install/` once. Back up `config/` and `Specific/` first.
+- After a version change, the container runs Baikal's upgrade wizard by itself (`baikal-auto-upgrade`), so CalDAV keeps working after an automatic update (e.g. Watchtower). Before that it copies the SQLite DB to `Specific/db/db.sqlite.pre-<version>`. Downgrades are never upgraded. Set `BAIKAL_AUTO_UPGRADE=false` to click the wizard at `/admin/install/` yourself.
 - Not included compared to `ckulka/baikal`: msmtp for e-mail invitations and the Home Assistant patch.
 
 Inspired by [ckulka/baikal-docker](https://github.com/ckulka/baikal-docker) (MIT).
